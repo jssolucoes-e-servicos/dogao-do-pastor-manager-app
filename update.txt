@@ -1,0 +1,8 @@
+# 1. Gerar o APK (roda na nuvem, ~10min)
+eas build --platform android --profile production
+
+# 2. Quando terminar, baixa o .apk pelo link e manda pro WhatsApp
+# Instala nos dispositivos uma vez só
+
+# 3. Para qualquer atualização futura (sem reinstalar)
+eas update --branch production --message "descrição"

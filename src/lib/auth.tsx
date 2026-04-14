@@ -1,0 +1,114 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import { api } from './api';
+import { registerPushToken } from './notifications';
+
+export type AuthUser = {
+  id: string;
+  name: string;
+  username: string;
+  type: string;
+  roles: string[];
+  sellers: { id: string; tag?: string; cellId?: string }[];
+  cells: { id: string }[];
+  cellNetworks: { id: string }[];
+  cellsMember: { id: string; cellId: string; sellerId: string }[];
+};
+
+type AuthContextType = {
+  user: AuthUser | null;
+  token: string | null;
+  ready: boolean;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  token: null,
+  ready: false,
+  login: async () => {},
+  logout: async () => {},
+});
+
+export const useAuth = () => useContext(AuthContext);
+
+function buildAuthUser(userData: any): AuthUser {
+  const roles = userData.userRoles
+    ? userData.userRoles.flatMap((ur: any) => [ur.role?.name?.toUpperCase(), ur.roleId].filter(Boolean))
+    : userData.roles ?? [];
+
+  return {
+    id: userData.id,
+    name: userData.name,
+    username: userData.username,
+    type: userData.type ?? 'CONTRIBUTOR',
+    roles,
+    sellers: userData.sellers ?? [],
+    cells: userData.cells ?? [],
+    cellNetworks: userData.cellNetworks ?? [],
+    cellsMember: userData.cellsMember ?? [],
+  };
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const t = await SecureStore.getItemAsync('token');
+      const u = await SecureStore.getItemAsync('user');
+      if (t && u) {
+        // Carrega o cache imediatamente para não travar a UI
+        setToken(t);
+        setUser(JSON.parse(u));
+        setReady(true);
+        // Depois faz refresh silencioso do perfil para garantir dados atualizados
+        try {
+          const data = await api.get<any>('/contributors/me');
+          const fresh = buildAuthUser(data);
+          await SecureStore.setItemAsync('user', JSON.stringify(fresh));
+          setUser(fresh);
+        } catch {
+          // Se falhar (token expirado, offline), mantém o cache
+        }
+      } else {
+        setToken(t);
+        setUser(null);
+        setReady(true);
+      }
+    })();
+  }, []);
+
+  const login = async (username: string, password: string) => {
+    const data = await api.post<{ access_token: string; user: any }>(
+      '/auth/contributor/login',
+      { username, password },
+    );
+
+    const { access_token, user: userData } = data;
+    const authUser = buildAuthUser(userData);
+
+    await SecureStore.setItemAsync('token', access_token);
+    await SecureStore.setItemAsync('user', JSON.stringify(authUser));
+    setToken(access_token);
+    setUser(authUser);
+    // Registrar push token após login
+    registerPushToken().catch(() => {});
+  };
+
+  const logout = async () => {
+    await SecureStore.deleteItemAsync('token');
+    await SecureStore.deleteItemAsync('user');
+    setToken(null);
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, token, ready, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
