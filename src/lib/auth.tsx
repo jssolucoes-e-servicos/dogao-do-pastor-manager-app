@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from './storage';
 import { api } from './api';
 import { registerPushToken } from './notifications';
 
@@ -58,8 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const t = await SecureStore.getItemAsync('token');
-      const u = await SecureStore.getItemAsync('user');
+      const t = await storage.getItem('token');
+      const u = await storage.getItem('user');
       if (t && u) {
         // Carrega o cache imediatamente para não travar a UI
         setToken(t);
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const data = await api.get<any>('/contributors/me');
           const fresh = buildAuthUser(data);
-          await SecureStore.setItemAsync('user', JSON.stringify(fresh));
+          await storage.setItem('user', JSON.stringify(fresh));
           setUser(fresh);
         } catch {
           // Se falhar (token expirado, offline), mantém o cache
@@ -91,8 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { access_token, user: userData } = data;
     const authUser = buildAuthUser(userData);
 
-    await SecureStore.setItemAsync('token', access_token);
-    await SecureStore.setItemAsync('user', JSON.stringify(authUser));
+    await storage.setItem('token', access_token);
+    await storage.setItem('user', JSON.stringify(authUser));
     setToken(access_token);
     setUser(authUser);
     // Registrar push token após login
@@ -100,8 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync('token');
-    await SecureStore.deleteItemAsync('user');
+    await storage.deleteItem('token');
+    await storage.deleteItem('user');
     setToken(null);
     setUser(null);
   };

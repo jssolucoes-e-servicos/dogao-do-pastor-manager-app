@@ -1,9 +1,9 @@
-import * as SecureStore from 'expo-secure-store';
+import { storage } from './storage';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = await SecureStore.getItemAsync('token');
+  const token = await storage.getItem('token');
 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,

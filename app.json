@@ -37,7 +37,17 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./src/assets/images/favicon.png"
+      "favicon": "./src/assets/images/favicon.png",
+      "bundler": "metro",
+      "name": "Dogão do Pastor - Equipe",
+      "shortName": "Dogão Equipe",
+      "description": "App da equipe de vendedores do Dogão do Pastor",
+      "themeColor": "#ea580c",
+      "backgroundColor": "#ea580c",
+      "display": "standalone",
+      "orientation": "portrait",
+      "scope": "/",
+      "startUrl": "/"
     },
     "plugins": [
       "expo-router",
