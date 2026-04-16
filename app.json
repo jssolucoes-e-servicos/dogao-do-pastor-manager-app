@@ -45,9 +45,7 @@
       "themeColor": "#ea580c",
       "backgroundColor": "#ea580c",
       "display": "standalone",
-      "orientation": "portrait",
-      "scope": "/",
-      "startUrl": "/"
+      "orientation": "portrait"
     },
     "plugins": [
       "expo-router",
