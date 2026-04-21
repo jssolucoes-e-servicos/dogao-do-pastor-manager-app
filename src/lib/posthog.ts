@@ -1,3 +1,5 @@
+// src/lib/posthog.ts
+
 import PostHog from 'posthog-react-native';
 import { Platform } from 'react-native';
 

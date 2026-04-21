@@ -479,7 +479,8 @@ export default function NewSaleScreen() {
       try {
         const sellerId = getEffectiveSellerId();
         const dto = buildDto(method, sellerId);
-        await api.post<any>('/orders/create-pdv', dto);
+        const result = await api.post<any>('/orders/create-pdv', dto);
+        if (result?.id) setPendingOrderId(result.id);
         setCashModalVisible(true);
       } catch (e: any) {
         showError(e?.message ?? 'Erro ao criar pedido.');
@@ -494,7 +495,8 @@ export default function NewSaleScreen() {
     try {
       const sellerId = getEffectiveSellerId();
       const dto = buildDto(method, sellerId);
-      await api.post<any>('/orders/create-pdv', dto);
+      const result = await api.post<any>('/orders/create-pdv', dto);
+      if (result?.id) setPendingOrderId(result.id);
       showSuccess('Pedido criado! Link de pagamento enviado por WhatsApp.');
       setStep('done');
     } catch (e: any) {
@@ -575,7 +577,14 @@ export default function NewSaleScreen() {
     }
   }
 
-  function handleCashFinalize() { setCashModalVisible(false); setStep('done'); }
+  function handleCashFinalize() {
+    setCashModalVisible(false);
+    setStep('done');
+    // Só agora o troco foi confirmado — dispara o comprovante em background
+    if (pendingOrderId) {
+      api.post(`/orders/${pendingOrderId}/finalize-cash`, {}).catch(() => {});
+    }
+  }
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -804,7 +813,19 @@ export default function NewSaleScreen() {
           <Text style={{ fontSize: 72 }}>✅</Text>
           <Text style={s.doneTitle}>Venda Registrada!</Text>
           <Text style={s.doneSub}>O cliente receberá a confirmação pelo WhatsApp.</Text>
-          <TouchableOpacity style={[s.btn, { width: '80%', marginTop: 32 }]} onPress={() => router.back()}>
+          {pendingOrderId && (
+            <TouchableOpacity
+              style={[s.btn, { width: '80%', marginTop: 24, backgroundColor: '#1f2937' }]}
+              onPress={() => {
+                const baseUrl = process.env.EXPO_PUBLIC_API_URL?.replace('/v1', '') ?? 'http://localhost:3001';
+                const url = `${baseUrl}/v1/orders/${pendingOrderId}/receipt.pdf`;
+                import('expo-web-browser').then(({ openBrowserAsync }) => openBrowserAsync(url));
+              }}
+            >
+              <Text style={s.btnText}>📄 Ver Comprovante PDF</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={[s.btn, { width: '80%', marginTop: 12 }]} onPress={() => router.back()}>
             <Text style={s.btnText}>Voltar ao Início</Text>
           </TouchableOpacity>
         </View>

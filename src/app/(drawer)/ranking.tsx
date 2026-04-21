@@ -1,16 +1,24 @@
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { getProfile } from '@/lib/profile';
 import { useTheme } from '@/hooks/use-theme';
 import { DrawerHeader } from '@/components/drawer-toggle';
 
-// Estrutura real que o dashboard retorna
 type SellerStats = { name: string; total: number };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 export default function RankingScreen() {
   const t = useTheme().colors;
+  const { user } = useAuth();
+  const profile = user ? getProfile(user) : null;
+
+  // Líderes e vendedores comuns só veem vendedores (da célula deles)
+  // Supervisores, admins e financeiro veem células também
+  const canSeeCells = profile?.isSupervisor || profile?.isAdmin || profile?.isFinance;
+
   const [sellers, setSellers] = useState<SellerStats[]>([]);
   const [cells, setCells] = useState<SellerStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,9 +27,18 @@ export default function RankingScreen() {
   async function load() {
     setLoading(true);
     try {
-      const res = await api.get<any>('/dashboard/summary');
-      setSellers(res?.rankingSellers ?? []);
-      setCells(res?.rankingCells ?? []);
+      if (profile?.isLeader && !canSeeCells) {
+        // Líder de célula: ranking da própria célula
+        const res = await api.get<any>('/dashboard/my-summary');
+        const ranking = res?.cell?.ranking ?? [];
+        setSellers(ranking.length > 0 ? ranking : res?.rankingSellers ?? []);
+        setCells([]);
+      } else {
+        // Todos os demais (vendedores, supervisores, admin): ranking global
+        const res = await api.get<any>('/dashboard/summary');
+        setSellers(res?.rankingSellers ?? []);
+        setCells(res?.rankingCells ?? []);
+      }
     } catch {
       setSellers([]);
       setCells([]);
@@ -30,7 +47,10 @@ export default function RankingScreen() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  // Carrega quando o perfil estiver disponível (não null)
+  useEffect(() => {
+    if (user) load();
+  }, [profile?.isLeader, canSeeCells, user?.id]);
 
   const data = tab === 'sellers' ? sellers : cells;
 
@@ -38,24 +58,33 @@ export default function RankingScreen() {
     <View style={[s.container, { backgroundColor: t.bg }]}>
       <DrawerHeader title="Ranking" />
 
-      {/* Tabs */}
-      <View style={[s.tabs, { backgroundColor: t.bgCard, borderBottomColor: t.border }]}>
-        {(['sellers', 'cells'] as const).map(key => (
-          <TouchableTab
-            key={key}
-            label={key === 'sellers' ? 'Vendedores' : 'Células'}
-            active={tab === key}
-            onPress={() => setTab(key)}
-            t={t}
-          />
-        ))}
-      </View>
+      {/* Tabs — aba Células só para quem pode ver */}
+      {canSeeCells && (
+        <View style={[s.tabs, { backgroundColor: t.bgCard, borderBottomColor: t.border }]}>
+          {(['sellers', 'cells'] as const).map(key => (
+            <TouchableTab
+              key={key}
+              label={key === 'sellers' ? 'Vendedores' : 'Células'}
+              active={tab === key}
+              onPress={() => setTab(key)}
+              t={t}
+            />
+          ))}
+        </View>
+      )}
 
       <FlatList
         data={data}
         keyExtractor={(item, i) => `${item.name}-${i}`}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={t.brand} />}
         contentContainerStyle={s.list}
+        ListHeaderComponent={
+          profile?.isLeader && !canSeeCells ? (
+            <Text style={[s.cellLabel, { color: t.textMuted }]}>
+              Vendedores da sua célula
+            </Text>
+          ) : null
+        }
         ListEmptyComponent={
           !loading ? (
             <Text style={[s.empty, { color: t.textMuted }]}>Sem dados de ranking.</Text>
@@ -78,8 +107,7 @@ export default function RankingScreen() {
 }
 
 function TouchableTab({ label, active, onPress, t }: {
-  label: string; active: boolean;
-  onPress: () => void; t: any;
+  label: string; active: boolean; onPress: () => void; t: any;
 }) {
   return (
     <TouchableOpacity
@@ -97,6 +125,7 @@ const s = StyleSheet.create({
   tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
   tab: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabLabel: { fontSize: 14, fontWeight: '600' },
+  cellLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, paddingHorizontal: 4 },
   list: { padding: 12, gap: 10, paddingBottom: 40 },
   empty: { textAlign: 'center', marginTop: 60, fontSize: 15 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 16, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },

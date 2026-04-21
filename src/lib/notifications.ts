@@ -1,13 +1,8 @@
+// src/lib/notifications.ts
+
 import { Platform } from 'react-native';
 import { api } from './api';
-
-export type NotificationPreferences = {
-  sales: boolean;
-  orders: boolean;
-  ranking: boolean;
-  cell: boolean;
-  network: boolean;
-};
+import { INotificationPreferences } from '@/interfaces';
 
 export async function registerPushToken(): Promise<string | null> {
   // Notificações push não funcionam no Expo Go (SDK 53+)
@@ -15,12 +10,12 @@ export async function registerPushToken(): Promise<string | null> {
   return null;
 }
 
-export async function getNotificationPreferences(): Promise<NotificationPreferences> {
-  return api.get<NotificationPreferences>('/notifications/preferences');
+export async function getNotificationPreferences(): Promise<INotificationPreferences> {
+  return api.get<INotificationPreferences>('/notifications/preferences');
 }
 
-export async function updateNotificationPreferences(
-  prefs: Partial<NotificationPreferences>,
-): Promise<NotificationPreferences> {
-  return api.post<NotificationPreferences>('/notifications/preferences', prefs);
+export async function updateINotificationPreferences(
+  prefs: Partial<INotificationPreferences>,
+): Promise<INotificationPreferences> {
+  return api.post<INotificationPreferences>('/notifications/preferences', prefs);
 }

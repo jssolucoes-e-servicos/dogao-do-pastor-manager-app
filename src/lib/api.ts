@@ -1,3 +1,5 @@
+// src/lib/api.ts
+
 import { storage } from './storage';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;

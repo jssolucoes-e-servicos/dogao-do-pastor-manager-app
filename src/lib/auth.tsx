@@ -1,22 +1,14 @@
+// src/lib/auth.ts
+
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { storage } from './storage';
 import { api } from './api';
 import { registerPushToken } from './notifications';
 
-export type AuthUser = {
-  id: string;
-  name: string;
-  username: string;
-  type: string;
-  roles: string[];
-  sellers: { id: string; tag?: string; cellId?: string }[];
-  cells: { id: string }[];
-  cellNetworks: { id: string }[];
-  cellsMember: { id: string; cellId: string; sellerId: string }[];
-};
+import type { IAuthUser } from '@/interfaces';
 
 type AuthContextType = {
-  user: AuthUser | null;
+  user: IAuthUser | null;
   token: string | null;
   ready: boolean;
   login: (username: string, password: string) => Promise<void>;
@@ -33,7 +25,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-function buildAuthUser(userData: any): AuthUser {
+function buildAuthUser(userData: any): IAuthUser {
   const roles = userData.userRoles
     ? userData.userRoles.flatMap((ur: any) => [ur.role?.name?.toUpperCase(), ur.roleId].filter(Boolean))
     : userData.roles ?? [];
@@ -52,7 +44,7 @@ function buildAuthUser(userData: any): AuthUser {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<IAuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 

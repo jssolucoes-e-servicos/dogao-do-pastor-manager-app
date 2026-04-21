@@ -57,11 +57,16 @@ function DrawerContent(props: any) {
     mainItems.push({ route: '/(drawer)/sales', label: 'Minhas Vendas', icon: 'receipt-outline' });
   }
 
+  // Meu Acerto — quem vende em dinheiro
+  if (profile?.canSeeSettlement) {
+    mainItems.push({ route: '/(drawer)/my-settlement', label: 'Meu Acerto', icon: 'cash-outline' });
+  }
+
   if (profile?.canSeeGlobalStats) {
     mainItems.push({ route: '/(drawer)/orders', label: 'Pedidos', icon: 'list-outline' });
   }
 
-  if (profile?.canSeeCellStats) {
+  if (profile?.canSeeGlobalStats) {
     mainItems.push({ route: '/(drawer)/donations', label: 'Doações', icon: 'heart-outline' });
   }
 
