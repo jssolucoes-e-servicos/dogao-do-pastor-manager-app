@@ -1,5 +1,14 @@
 export interface ICellMember {
   id: string;
   cellId: string;
-  sellerId: string
+  cell?: {
+    id: string;
+    name: string;
+    sellerId?: string;
+    seller?: {
+      id: string;
+      name: string;
+      tag: string;
+    };
+  };
 }

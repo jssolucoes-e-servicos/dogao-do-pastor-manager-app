@@ -57,9 +57,12 @@ function DrawerContent(props: any) {
     mainItems.push({ route: '/(drawer)/sales', label: 'Minhas Vendas', icon: 'receipt-outline' });
   }
 
-  // Meu Acerto — quem vende em dinheiro
   if (profile?.canSeeSettlement) {
     mainItems.push({ route: '/(drawer)/my-settlement', label: 'Meu Acerto', icon: 'cash-outline' });
+  }
+
+  if (profile?.canConfirmSettlement) {
+    mainItems.push({ route: '/(drawer)/finance-settlements', label: 'Acertos (Financ)', icon: 'wallet-outline' });
   }
 
   if (profile?.canSeeGlobalStats) {

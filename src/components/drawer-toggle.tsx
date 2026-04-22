@@ -7,9 +7,10 @@ type Props = {
   title?: string;
   rightIcon?: keyof typeof Ionicons.glyphMap;
   onRightPress?: () => void;
+  right?: React.ReactNode;
 };
 
-export function DrawerHeader({ title, rightIcon, onRightPress }: Props) {
+export function DrawerHeader({ title, rightIcon, onRightPress, right }: Props) {
   const navigation = useNavigation();
   const { colors: t } = useTheme();
 
@@ -29,7 +30,9 @@ export function DrawerHeader({ title, rightIcon, onRightPress }: Props) {
         <View style={{ flex: 1 }} />
       )}
 
-      {rightIcon && onRightPress ? (
+      {right ? (
+        <View style={s.iconBtn}>{right}</View>
+      ) : rightIcon && onRightPress ? (
         <TouchableOpacity onPress={onRightPress} style={s.iconBtn}>
           <Ionicons name={rightIcon} size={24} color="#fff" />
         </TouchableOpacity>

@@ -509,12 +509,16 @@ export default function NewSaleScreen() {
   // Seller direto > seller padrão da célula
   function getEffectiveSellerId(): string | undefined {
     return user?.sellers?.[0]?.id
-      ?? user?.cellsMember?.[0]?.sellerId;
+      ?? user?.cellsMember?.[0]?.cell?.sellerId;
   }
 
   function getEffectiveSellerName(): string {
     if (user?.sellers?.[0]) {
       return (user.sellers[0] as any).name ?? user.sellers[0].tag ?? '—';
+    }
+    const cellSeller = user?.cellsMember?.[0]?.cell?.seller;
+    if (cellSeller) {
+      return cellSeller.name ?? cellSeller.tag ?? '—';
     }
     return '—';
   }
