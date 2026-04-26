@@ -1,14 +1,21 @@
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Modal, TextInput, ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { api } from '@/lib/api';
-import { useTheme } from '@/hooks/use-theme';
 import { DrawerHeader } from '@/components/drawer-toggle';
+import { useTheme } from '@/hooks/use-theme';
+import { api } from '@/lib/api';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 type Settlement = {
   id: string;
@@ -65,7 +72,7 @@ export default function FinanceSettlementsScreen() {
   // Modais
   const [confirmModal, setConfirmModal] = useState<Payment | null>(null);
   const [registerModal, setRegisterModal] = useState<Settlement | null>(null);
-  
+
   // States para registro direto
   const [regAmount, setRegAmount] = useState('');
   const [regMethod, setRegMethod] = useState<'CASH' | 'PIX_IVC'>('CASH');
@@ -159,8 +166,8 @@ export default function FinanceSettlementsScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: t.bg }]}>
-      <DrawerHeader 
-        title="Acertos (Financ)" 
+      <DrawerHeader
+        title="Acertos (Financ)"
         right={(
           <TouchableOpacity onPress={handleSync} disabled={syncing} style={s.syncBtn}>
             {syncing ? <ActivityIndicator size="small" color={t.brand} /> : <Ionicons name="refresh" size={22} color={t.brand} />}
@@ -235,7 +242,7 @@ export default function FinanceSettlementsScreen() {
                   <Text style={[s.cardSub, { color: t.textMuted }]}>
                     @{item.contributor?.username} • {item.orders?.length ?? 0} venda(s)
                   </Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[s.miniBtn, { backgroundColor: t.brand }]}
                     onPress={() => openRegister(item)}>
                     <Text style={s.miniBtnText}>Registrar</Text>
@@ -296,7 +303,7 @@ export default function FinanceSettlementsScreen() {
                   {registerModal.contributor?.name} • Saldo: {fmt(registerModal.totalAmount - registerModal.paidAmount)}
                 </Text>
               )}
-              
+
               <Text style={[s.fieldLabel, { color: t.textSub, marginTop: 12 }]}>Valor Recebido</Text>
               <TextInput
                 style={[s.input, { backgroundColor: t.bg, color: t.text, borderColor: t.border }]}
@@ -306,12 +313,12 @@ export default function FinanceSettlementsScreen() {
 
               <Text style={[s.fieldLabel, { color: t.textSub }]}>Forma de Pagamento</Text>
               <View style={s.methodRow}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[s.methodBtn, regMethod === 'CASH' && { backgroundColor: '#16a34a' }, { borderColor: t.border }]}
                   onPress={() => setRegMethod('CASH')}>
                   <Text style={[s.methodBtnText, regMethod === 'CASH' && { color: '#fff' }, { color: t.textMuted }]}>💵 Espécie</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[s.methodBtn, regMethod === 'PIX_IVC' && { backgroundColor: '#2563eb' }, { borderColor: t.border }]}
                   onPress={() => setRegMethod('PIX_IVC')}>
                   <Text style={[s.methodBtnText, regMethod === 'PIX_IVC' && { color: '#fff' }, { color: t.textMuted }]}>📱 PIX IVC</Text>
@@ -344,7 +351,7 @@ const s = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: 16, gap: 20, paddingBottom: 40 },
   syncBtn: { padding: 8 },
-  
+
   // Resumo
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   summaryCard: { flexBasis: '48%', flexGrow: 1, borderRadius: 16, padding: 12, alignItems: 'center', gap: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 },
@@ -360,7 +367,7 @@ const s = StyleSheet.create({
   cardAmount: { fontSize: 18, fontWeight: '800' },
   cardFooter: { flexDirection: 'row', justifyContent: 'between', alignItems: 'center' },
   cardSub: { flex: 1, fontSize: 12, fontWeight: '600' },
-  
+
   miniBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
   miniBtnText: { color: '#fff', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
 
@@ -371,7 +378,7 @@ const s = StyleSheet.create({
   sheet: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, gap: 14, paddingBottom: 40, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 10 },
   sheetTitle: { fontSize: 22, fontWeight: '900' },
   sheetSub: { fontSize: 14, fontWeight: '600', marginTop: -6 },
-  
+
   modalInfo: { backgroundColor: 'rgba(0,0,0,0.02)', borderRadius: 20, padding: 16, gap: 12 },
   modalRow: { flexDirection: 'row', justifyContent: 'between', alignItems: 'center' },
   modalLabel: { fontSize: 12, fontWeight: '600' },
@@ -379,7 +386,7 @@ const s = StyleSheet.create({
 
   fieldLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: -4 },
   input: { borderWidth: 1.5, borderRadius: 16, padding: 14, fontSize: 18, fontWeight: '800', textAlign: 'center' },
-  
+
   methodRow: { flexDirection: 'row', gap: 10 },
   methodBtn: { flex: 1, borderWidth: 1.5, borderRadius: 16, padding: 14, alignItems: 'center' },
   methodBtnText: { fontSize: 14, fontWeight: '700' },

@@ -1,13 +1,21 @@
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Modal, TextInput, ActivityIndicator,
-  Image, Alert,
-} from 'react-native';
-import { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { api } from '@/lib/api';
-import { useTheme } from '@/hooks/use-theme';
 import { DrawerHeader } from '@/components/drawer-toggle';
+import { useTheme } from '@/hooks/use-theme';
+import { api } from '@/lib/api';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 // O backend retorna 1 settlement por edição com todos os repasses
 type Payment = {

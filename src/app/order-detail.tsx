@@ -1,14 +1,21 @@
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, ActivityIndicator, RefreshControl, Modal, TextInput, FlatList,
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { api } from '@/lib/api';
 import { useTheme } from '@/hooks/use-theme';
+import { api } from '@/lib/api';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
-const INGREDIENTS = ['Batata Palha','Catchup','Ervilha','Maionese','Milho','Molho Vermelho','Molho 4 queijos','Mostarda','Pão','Salsicha'];
+const INGREDIENTS = ['Batata Palha', 'Catchup', 'Ervilha', 'Maionese', 'Milho', 'Molho Vermelho', 'Molho 4 queijos', 'Mostarda', 'Pão', 'Salsicha'];
 
 type OrderItem = { id: string; removedIngredients: string[] };
 type Address = { id: string; street: string; number: string; neighborhood: string; city: string; state: string };
@@ -21,15 +28,15 @@ type Order = {
   customer?: { addresses?: Address[] };
 };
 
-const STATUS_LABEL: Record<string,string> = { PAID:'Pago', PENDING_PAYMENT:'Aguardando', CANCELLED:'Cancelado', DIGITATION:'Em digitação', QUEUE:'Na fila', PRODUCTION:'Em produção', DELIVERED:'Entregue' };
-const STATUS_COLOR: Record<string,string> = { PAID:'#16a34a', PENDING_PAYMENT:'#d97706', CANCELLED:'#dc2626', DIGITATION:'#6b7280', QUEUE:'#2563eb', PRODUCTION:'#7c3aed', DELIVERED:'#16a34a' };
-const PAYMENT_LABEL: Record<string,string> = { PIX:'PIX', CARD_CREDIT:'Cartão de Crédito', CARD_DEBIT:'Cartão de Débito', MONEY:'Dinheiro', POS:'Maquininha', UNDEFINED:'—' };
-const DELIVERY_LABEL: Record<string,string> = { PICKUP:'Retirada no Local', DELIVERY:'Entrega', DONATE:'Doação', UNDEFINED:'—' };
+const STATUS_LABEL: Record<string, string> = { PAID: 'Pago', PENDING_PAYMENT: 'Aguardando', CANCELLED: 'Cancelado', DIGITATION: 'Em digitação', QUEUE: 'Na fila', PRODUCTION: 'Em produção', DELIVERED: 'Entregue' };
+const STATUS_COLOR: Record<string, string> = { PAID: '#16a34a', PENDING_PAYMENT: '#d97706', CANCELLED: '#dc2626', DIGITATION: '#6b7280', QUEUE: '#2563eb', PRODUCTION: '#7c3aed', DELIVERED: '#16a34a' };
+const PAYMENT_LABEL: Record<string, string> = { PIX: 'PIX', CARD_CREDIT: 'Cartão de Crédito', CARD_DEBIT: 'Cartão de Débito', MONEY: 'Dinheiro', POS: 'Maquininha', UNDEFINED: '—' };
+const DELIVERY_LABEL: Record<string, string> = { PICKUP: 'Retirada no Local', DELIVERY: 'Entrega', DONATE: 'Doação', UNDEFINED: '—' };
 
-function fmt(v: number) { return v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
-function fmtDate(d: string) { return new Date(d).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+function fmt(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+function fmtDate(d: string) { return new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function groupItems(items: OrderItem[]) {
-  const map: Record<string,number> = {};
+  const map: Record<string, number> = {};
   for (const item of items) {
     const key = item.removedIngredients.length > 0 ? `Sem ${item.removedIngredients.join(', ')}` : 'Dogão Completo';
     map[key] = (map[key] || 0) + 1;
@@ -37,7 +44,7 @@ function groupItems(items: OrderItem[]) {
   return Object.entries(map).map(([name, qty]) => ({ name, qty }));
 }
 
-function Row({ label, value, valueColor, t }: { label:string; value:string; valueColor?:string; t:any }) {
+function Row({ label, value, valueColor, t }: { label: string; value: string; valueColor?: string; t: any }) {
   return (
     <View style={[r.row, { borderBottomColor: t.separator }]}>
       <Text style={[r.label, { color: t.textSub }]}>{label}</Text>
@@ -57,7 +64,7 @@ export default function OrderDetailScreen() {
   // Modais
   const [receiptModal, setReceiptModal] = useState(false);
   const [modifyModal, setModifyModal] = useState(false);
-  const [modifyStep, setModifyStep] = useState<'menu'|'type'|'schedule'|'ingredients'|'address'|'partner'>('menu');
+  const [modifyStep, setModifyStep] = useState<'menu' | 'type' | 'schedule' | 'ingredients' | 'address' | 'partner'>('menu');
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -67,7 +74,7 @@ export default function OrderDetailScreen() {
   const [newAddress, setNewAddress] = useState('');
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [donationTarget, setDonationTarget] = useState('IVC_INTERNAL');
-  const [editingItemId, setEditingItemId] = useState<string|null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [removedIngredients, setRemovedIngredients] = useState<string[]>([]);
 
   async function load() {
@@ -158,7 +165,7 @@ export default function OrderDetailScreen() {
 
   if (loading || !order) {
     return (
-      <View style={[s.container, { backgroundColor: t.bg, justifyContent:'center', alignItems:'center' }]}>
+      <View style={[s.container, { backgroundColor: t.bg, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator color={t.brand} size="large" />
       </View>
     );
@@ -166,7 +173,7 @@ export default function OrderDetailScreen() {
 
   const statusColor = STATUS_COLOR[order.paymentStatus] ?? '#6b7280';
   const grouped = groupItems(order.items ?? []);
-  const canModify = !['QUEUE','PRODUCTION','EXPEDITION','DELIVERING','DELIVERED'].includes(order.status);
+  const canModify = !['QUEUE', 'PRODUCTION', 'EXPEDITION', 'DELIVERING', 'DELIVERED'].includes(order.status);
 
   return (
     <View style={[s.container, { backgroundColor: t.bg }]}>
@@ -282,7 +289,7 @@ export default function OrderDetailScreen() {
             {modifyStep === 'type' && (
               <ScrollView>
                 <Text style={[m.title, { color: t.text }]}>Tipo de Pedido</Text>
-                {(['PICKUP','DELIVERY','DONATE'] as const).map(opt => (
+                {(['PICKUP', 'DELIVERY', 'DONATE'] as const).map(opt => (
                   <TouchableOpacity key={opt} onPress={() => setNewDelivery(opt)}
                     style={[m.optCard, { borderColor: newDelivery === opt ? t.brand : t.border, backgroundColor: newDelivery === opt ? t.brand + '22' : t.bg }]}>
                     <Text style={[m.optLabel, { color: newDelivery === opt ? t.brand : t.text }]}>
@@ -360,7 +367,7 @@ export default function OrderDetailScreen() {
                   return (
                     <TouchableOpacity key={item.id} style={[m.optCard, { borderColor: t.border, backgroundColor: t.bg }]}
                       onPress={() => { setEditingItemId(item.id); setRemovedIngredients([...item.removedIngredients]); }}>
-                      <Text style={[m.optLabel, { color: t.text }]}>🌭 {i+1}. {label}</Text>
+                      <Text style={[m.optLabel, { color: t.text }]}>🌭 {i + 1}. {label}</Text>
                       <Text style={[m.optSub, { color: t.brand }]}>Modificar →</Text>
                     </TouchableOpacity>
                   );
@@ -406,47 +413,47 @@ export default function OrderDetailScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection:'row', alignItems:'center', paddingTop:56, paddingBottom:16, paddingHorizontal:16 },
-  backBtn: { width:40, height:40, justifyContent:'center' },
-  backIcon: { fontSize:22, color:'#fff' },
-  headerTitle: { flex:1, textAlign:'center', fontSize:17, fontWeight:'700', color:'#fff' },
-  scroll: { padding:16, gap:12, paddingBottom:40 },
-  statusBadge: { borderRadius:99, paddingHorizontal:16, paddingVertical:8, alignSelf:'center' },
-  statusText: { fontSize:14, fontWeight:'700' },
-  section: { borderRadius:16, padding:16, gap:2 },
-  sectionTitle: { fontSize:10, fontWeight:'700', textTransform:'uppercase', letterSpacing:1, marginBottom:8 },
-  itemRow: { flexDirection:'row', alignItems:'center', gap:8, paddingVertical:8, borderBottomWidth: StyleSheet.hairlineWidth },
-  itemQty: { fontSize:14, fontWeight:'800', width:28 },
-  itemName: { flex:1, fontSize:13, fontWeight:'600' },
-  itemPrice: { fontSize:13 },
-  totalRow: { flexDirection:'row', justifyContent:'space-between', paddingTop:12, borderTopWidth:1, marginTop:4 },
-  totalLabel: { fontSize:14, fontWeight:'700' },
-  totalValue: { fontSize:22, fontWeight:'900' },
-  actions: { flexDirection:'row', gap:10 },
-  actionBtn: { flex:1, borderRadius:14, paddingVertical:16, alignItems:'center' },
-  actionBtnText: { color:'#fff', fontSize:15, fontWeight:'700' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16 },
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  backIcon: { fontSize: 22, color: '#fff' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: '#fff' },
+  scroll: { padding: 16, gap: 12, paddingBottom: 40 },
+  statusBadge: { borderRadius: 99, paddingHorizontal: 16, paddingVertical: 8, alignSelf: 'center' },
+  statusText: { fontSize: 14, fontWeight: '700' },
+  section: { borderRadius: 16, padding: 16, gap: 2 },
+  sectionTitle: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  itemQty: { fontSize: 14, fontWeight: '800', width: 28 },
+  itemName: { flex: 1, fontSize: 13, fontWeight: '600' },
+  itemPrice: { fontSize: 13 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, marginTop: 4 },
+  totalLabel: { fontSize: 14, fontWeight: '700' },
+  totalValue: { fontSize: 22, fontWeight: '900' },
+  actions: { flexDirection: 'row', gap: 10 },
+  actionBtn: { flex: 1, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
 
 const r = StyleSheet.create({
-  row: { flexDirection:'row', justifyContent:'space-between', paddingVertical:8, borderBottomWidth:StyleSheet.hairlineWidth },
-  label: { fontSize:13 },
-  value: { fontSize:13, fontWeight:'600', textAlign:'right', flex:1, marginLeft:16 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  label: { fontSize: 13 },
+  value: { fontSize: 13, fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 },
 });
 
 const m = StyleSheet.create({
-  overlay: { flex:1, backgroundColor:'rgba(0,0,0,0.5)', justifyContent:'flex-end' },
-  sheet: { borderTopLeftRadius:28, borderTopRightRadius:28, padding:24, paddingBottom:40, gap:12, maxHeight:'85%' },
-  title: { fontSize:20, fontWeight:'800', marginBottom:4 },
-  btn: { borderRadius:14, paddingVertical:15, alignItems:'center' },
-  btnText: { color:'#fff', fontSize:15, fontWeight:'700' },
-  cancel: { paddingVertical:12, alignItems:'center' },
-  cancelText: { fontSize:14, fontWeight:'600' },
-  optCard: { borderWidth:2, borderRadius:14, padding:14, marginBottom:8 },
-  optLabel: { fontSize:14, fontWeight:'600' },
-  optSub: { fontSize:12, fontWeight:'700', marginTop:2 },
-  fieldLabel: { fontSize:11, fontWeight:'700', textTransform:'uppercase', letterSpacing:1, marginBottom:6, marginTop:8 },
-  input: { borderWidth:1, borderRadius:14, padding:14, fontSize:15, marginBottom:4 },
-  ingGrid: { flexDirection:'row', flexWrap:'wrap', gap:8, marginVertical:8 },
-  ingBtn: { borderWidth:2, borderRadius:12, paddingHorizontal:12, paddingVertical:8 },
-  ingText: { fontSize:12, fontWeight:'700' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, gap: 12, maxHeight: '85%' },
+  title: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  btn: { borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  btnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  cancel: { paddingVertical: 12, alignItems: 'center' },
+  cancelText: { fontSize: 14, fontWeight: '600' },
+  optCard: { borderWidth: 2, borderRadius: 14, padding: 14, marginBottom: 8 },
+  optLabel: { fontSize: 14, fontWeight: '600' },
+  optSub: { fontSize: 12, fontWeight: '700', marginTop: 2 },
+  fieldLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, marginTop: 8 },
+  input: { borderWidth: 1, borderRadius: 14, padding: 14, fontSize: 15, marginBottom: 4 },
+  ingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 8 },
+  ingBtn: { borderWidth: 2, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  ingText: { fontSize: 12, fontWeight: '700' },
 });

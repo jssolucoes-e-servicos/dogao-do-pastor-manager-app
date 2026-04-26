@@ -2,6 +2,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, Modal, Switch, TextInput, ActivityIndicator,
 } from 'react-native';
+import { alerts } from '@/lib/alerts';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
@@ -55,12 +56,6 @@ export default function SettingsScreen() {
     getNotificationPreferences().then(setPrefs).catch(() => {});
   }, []);
 
-  function handleLogout() {
-    Alert.alert('Sair', 'Deseja encerrar a sessão?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: logout },
-    ]);
-  }
 
   async function togglePref(key: keyof NotificationPreferences, value: boolean) {
     if (!prefs) return;
@@ -85,14 +80,14 @@ export default function SettingsScreen() {
       await api.post('/auth/request-otp', { userId: user!.id, type: 'CONTRIBUTOR' });
       setPwStep('VERIFY');
     } catch (e: any) {
-      Alert.alert('Erro', e?.message ?? 'Não foi possível enviar o código.');
+      alerts.error(e?.message ?? 'Não foi possível enviar o código.');
     } finally {
       setPwLoading(false);
     }
   }
 
   async function handleVerifyOtp() {
-    if (!otp.trim()) { Alert.alert('Digite o código'); return; }
+    if (!otp.trim()) { alerts.alert('Digite o código'); return; }
     setPwLoading(true);
     try {
       const data = await api.post<any>('/auth/validate-otp', { userId: user!.id, code: otp });
@@ -100,18 +95,18 @@ export default function SettingsScreen() {
         setValidationToken(data.token);
         setPwStep('NEW_PASSWORD');
       } else {
-        Alert.alert('Código incorreto ou expirado.');
+        alerts.alert('Código incorreto ou expirado.');
       }
     } catch (e: any) {
-      Alert.alert('Erro', e?.message ?? 'Erro na validação.');
+      alerts.error(e?.message ?? 'Erro na validação.');
     } finally {
       setPwLoading(false);
     }
   }
 
   async function handleSetPassword() {
-    if (newPw !== confirmPw) { Alert.alert('As senhas não coincidem'); return; }
-    if (newPw.length < 6) { Alert.alert('Mínimo 6 caracteres'); return; }
+    if (newPw !== confirmPw) { alerts.alert('As senhas não coincidem'); return; }
+    if (newPw.length < 6) { alerts.alert('Mínimo 6 caracteres'); return; }
     setPwLoading(true);
     try {
       await api.patch('/auth/change-password', {
@@ -120,10 +115,10 @@ export default function SettingsScreen() {
         token: validationToken,
         password: newPw,
       });
-      Alert.alert('Senha alterada com sucesso!');
+      alerts.alert('Senha alterada com sucesso!');
       setPwModal(false);
     } catch (e: any) {
-      Alert.alert('Erro', e?.message ?? 'Não foi possível alterar a senha.');
+      alerts.error(e?.message ?? 'Não foi possível alterar a senha.');
     } finally {
       setPwLoading(false);
     }
@@ -197,7 +192,7 @@ export default function SettingsScreen() {
             </View>
           </View>
           <TouchableOpacity
-            style={[s.row, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border }]}
+            style={s.row}
             onPress={openPwModal}
             activeOpacity={0.6}
           >
@@ -205,13 +200,6 @@ export default function SettingsScreen() {
               <Ionicons name="lock-closed-outline" size={18} color={t.textBrand} />
             </View>
             <Text style={[s.rowLabel, { color: t.text }]}>Trocar senha</Text>
-            <Ionicons name="chevron-forward" size={16} color={t.textMuted} />
-          </TouchableOpacity>
-          <TouchableOpacity style={s.row} onPress={handleLogout} activeOpacity={0.6}>
-            <View style={[s.iconWrap, { backgroundColor: '#fef2f2' }]}>
-              <Ionicons name="log-out-outline" size={18} color={t.error} />
-            </View>
-            <Text style={[s.rowLabel, { color: t.error }]}>Sair da conta</Text>
             <Ionicons name="chevron-forward" size={16} color={t.textMuted} />
           </TouchableOpacity>
         </View>

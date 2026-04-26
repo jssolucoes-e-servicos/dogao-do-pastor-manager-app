@@ -1,7 +1,8 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Modal, TextInput, Alert, FlatList,
+  RefreshControl, ActivityIndicator, Modal, TextInput, FlatList,
 } from 'react-native';
+import { alerts } from '@/lib/alerts';
 import { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '@/lib/api';
@@ -96,10 +97,10 @@ export default function MyCellScreen() {
 
   async function handleAddMember() {
     if (!memberForm.name || !memberForm.phone) {
-      Alert.alert('Preencha nome e telefone'); return;
+      alerts.alert('Preencha nome e telefone'); return;
     }
     const username = generateUsername(memberForm.name);
-    if (!username) { Alert.alert('Nome inválido'); return; }
+    if (!username) { alerts.alert('Nome inválido'); return; }
     setSaving(true);
     try {
       await api.post('/contributors/invite-member', {
@@ -108,11 +109,11 @@ export default function MyCellScreen() {
         phone: memberForm.phone,
         cellId: cell?.id,
       });
-      Alert.alert('Sucesso!', `${memberForm.name} adicionado à célula.\nUsuário: @${username}\nUma mensagem de boas-vindas foi enviada por WhatsApp.`);
+      alerts.alert('Sucesso!', `${memberForm.name} adicionado à célula.\nUsuário: @${username}\nUma mensagem de boas-vindas foi enviada por WhatsApp.`);
       setAddMemberModal(false);
       setMemberForm({ name: '', phone: '' });
       load();
-    } catch (e: any) { Alert.alert('Erro', e.message); }
+    } catch (e: any) { alerts.error(e.message); }
     setSaving(false);
   }
 

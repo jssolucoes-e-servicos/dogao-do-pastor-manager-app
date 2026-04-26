@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/theme';
 import { getProfile } from '@/lib/profile';
 import { DrawerHeader } from '@/components/drawer-toggle';
+import { alerts } from '@/lib/alerts';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -32,10 +33,7 @@ export default function ProfileScreen() {
     : 'Colaborador';
 
   function handleLogout() {
-    Alert.alert('Sair', 'Deseja encerrar a sessão?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: logout },
-    ]);
+    alerts.confirm('Sair', 'Deseja encerrar a sessão?', logout);
   }
 
   const roleLabels: Record<string, string> = {
