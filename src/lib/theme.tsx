@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '@/lib/storage';
 import { palette, brand, type ThemeColors } from '@/constants/theme';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
@@ -22,14 +22,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>('system');
 
   useEffect(() => {
-    SecureStore.getItemAsync('theme_preference').then(v => {
+    storage.getItem('theme_preference').then(v => {
       if (v === 'light' || v === 'dark' || v === 'system') setPreferenceState(v);
     });
   }, []);
 
   async function setPreference(p: ThemePreference) {
     setPreferenceState(p);
-    await SecureStore.setItemAsync('theme_preference', p);
+    await storage.setItem('theme_preference', p);
   }
 
   const scheme: 'light' | 'dark' = preference === 'system' ? system : preference;
