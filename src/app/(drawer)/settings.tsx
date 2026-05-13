@@ -12,6 +12,7 @@ import { DrawerHeader } from '@/components/drawer-toggle';
 import { getNotificationPreferences, updateNotificationPreferences, type NotificationPreferences } from '@/lib/notifications';
 import { api } from '@/lib/api';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { value: 'system', label: 'Seguir o sistema', icon: 'phone-portrait-outline' },
@@ -29,8 +30,10 @@ const NOTIF_ITEMS: NotifItem[] = [
 ];
 
 const ABOUT_ITEMS = [
-  { label: 'Versão', icon: 'information-circle-outline' as const, getValue: () => Constants.expoConfig?.version ?? '—' },
-  { label: 'Build',  icon: 'code-slash-outline' as const,         getValue: () => String(Constants.expoConfig?.android?.versionCode ?? '—') },
+  { label: 'Versão Base', icon: 'information-circle-outline' as const, getValue: () => Constants.expoConfig?.version ?? '—' },
+  { label: 'Build',       icon: 'code-slash-outline' as const,         getValue: () => String(Constants.expoConfig?.android?.versionCode ?? '—') },
+  { label: 'Bundle ID',   icon: 'finger-print-outline' as const,       getValue: () => Updates.updateId?.slice(0, 8) ?? 'Nativo' },
+  { label: 'Atualizado',  icon: 'calendar-outline' as const,           getValue: () => Updates.createdAt ? new Date(Updates.createdAt).toLocaleDateString('pt-BR') : '—' },
 ];
 
 // Trocar senha — 3 steps: REQUEST → VERIFY → NEW_PASSWORD
@@ -219,6 +222,35 @@ export default function SettingsScreen() {
               <Text style={[s.rowValue, { color: t.textSub }]}>{getValue()}</Text>
             </View>
           ))}
+          
+          <TouchableOpacity 
+            style={[s.row, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.border }]} 
+            activeOpacity={0.7}
+            onPress={async () => {
+              try {
+                const update = await Updates.checkForUpdateAsync();
+                if (update.isAvailable) {
+                  Alert.alert('Atualização disponível!', 'Uma nova versão foi encontrada. Deseja baixar agora?', [
+                    { text: 'Agora não', style: 'cancel' },
+                    { text: 'Baixar e Reiniciar', onPress: async () => {
+                      await Updates.fetchUpdateAsync();
+                      await Updates.reloadAsync();
+                    }}
+                  ]);
+                } else {
+                  alerts.alert('Você já está na versão mais recente.');
+                }
+              } catch (e) {
+                alerts.error('Não foi possível verificar atualizações no momento.');
+              }
+            }}
+          >
+            <View style={[s.iconWrap, { backgroundColor: t.bgMuted }]}>
+              <Ionicons name="refresh-outline" size={18} color={t.textBrand} />
+            </View>
+            <Text style={[s.rowLabel, { color: t.text, fontWeight: '700' }]}>Verificar atualizações</Text>
+            <Ionicons name="chevron-forward" size={16} color={t.textMuted} />
+          </TouchableOpacity>
         </View>
 
         <Text style={[s.footer, { color: t.textMuted }]}>

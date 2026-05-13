@@ -12,6 +12,8 @@ import { ThemeProvider, useTheme } from '@/lib/theme';
 import { LogoHotdog } from '@/components/logo-hotdog';
 import { PostHogProvider } from 'posthog-react-native';
 import { posthog } from '@/lib/posthog';
+import * as Updates from 'expo-updates';
+import { Alert } from 'react-native';
 
 function SplashOverlay({ onDone }: { onDone: () => void }) {
   const opacity = useSharedValue(1);
@@ -49,6 +51,34 @@ function NavigationGuard({ onAuthReady }: { onAuthReady: () => void }) {
   return null;
 }
 
+function UpdateMonitor() {
+  const { event } = Updates.useUpdateEvents();
+
+  useEffect(() => {
+    if (event?.type === Updates.UpdateEventType.UPDATE_AVAILABLE) {
+      // O download começa automaticamente em segundo plano (configurado no app.json)
+      // Aqui apenas avisamos que está disponível
+    }
+    
+    if (event?.type === Updates.UpdateEventType.UPDATE_DOWNLOADED) {
+      Alert.alert(
+        '🚀 Nova Versão!',
+        'Uma atualização foi baixada. Deseja reiniciar o app agora para aplicar as mudanças?',
+        [
+          { text: 'Depois', style: 'cancel' },
+          { text: 'Reiniciar Agora', onPress: () => Updates.reloadAsync() }
+        ]
+      );
+    }
+    
+    if (event?.type === Updates.UpdateEventType.UPDATE_ERROR) {
+      console.error('Erro ao baixar atualização:', event.message);
+    }
+  }, [event]);
+
+  return null;
+}
+
 function AppShell() {
   const { colors } = useTheme();
   const showSplash = useSharedValue(true);
@@ -61,6 +91,7 @@ function AppShell() {
         <Stack.Screen name="(drawer)" />
         <Stack.Screen name="new-sale" options={{ presentation: 'modal' }} />
       </Stack>
+      <UpdateMonitor />
       <NavigationGuard onAuthReady={() => { showSplash.value = false; }} />
       <SplashOverlay onDone={() => { showSplash.value = false; }} />
     </>
