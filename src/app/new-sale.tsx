@@ -35,7 +35,7 @@ type DeliveryOption = 'PICKUP' | 'DELIVERY' | 'DONATE';
 
 type Partner = { id: string; name: string; addressInLine: string; responsibleName: string; logo?: string };
 
-type PdvItem = { id: string; removedIngredients: string[] };
+type PdvItem = { id: string; removedIngredients: string[]; isPromo?: boolean };
 
 type PaymentMethod = 'PIX' | 'CARD_CREDIT' | 'MONEY';
 
@@ -57,15 +57,7 @@ function formatCPF(v: string) {
 function formatCurrency(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
-function groupItems(items: PdvItem[]) {
-  const map = new Map<string, { key: string; removed: string[]; count: number }>();
-  items.forEach(item => {
-    const key = [...item.removedIngredients].sort().join('|') || 'completo';
-    if (map.has(key)) map.get(key)!.count++;
-    else map.set(key, { key, removed: item.removedIngredients, count: 1 });
-  });
-  return Array.from(map.values());
-}
+
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -296,6 +288,7 @@ export default function NewSaleScreen() {
 
   // Edition
   const [dogPrice, setDogPrice] = useState(24.99);
+  const [comboActive, setComboActive] = useState(false);
 
   // Toast
   const [toast, setToast] = useState({ visible: false, message: '', type: 'error' as 'error' | 'success' });
@@ -325,6 +318,7 @@ export default function NewSaleScreen() {
 
   // Items
   const [items, setItems] = useState<PdvItem[]>([]);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [ingredientModalVisible, setIngredientModalVisible] = useState(false);
 
   // Payment
@@ -340,13 +334,18 @@ export default function NewSaleScreen() {
 
   const [cashModalVisible, setCashModalVisible] = useState(false);
 
-  const total = items.length * dogPrice;
-  const grouped = groupItems(items);
+  const total = items.reduce((acc, i) => acc + (i.isPromo ? 0 : dogPrice), 0);
+  const paidCount = items.filter(i => !i.isPromo).length;
+  const promoCount = items.filter(i => i.isPromo).length;
+  const isComboValid = promoCount === 0 || (paidCount >= promoCount * 5);
 
   // Load edition price and partners
   useEffect(() => {
-    api.get<{ edition: { dogPrice: number } }>('/editions/get-active')
-      .then(res => { if (res?.edition?.dogPrice) setDogPrice(res.edition.dogPrice); })
+    api.get<{ edition: { dogPrice: number }, configs: { combo_enabled: boolean } }>('/editions/get-active')
+      .then(res => {
+        if (res?.edition?.dogPrice) setDogPrice(res.edition.dogPrice);
+        if (res?.configs?.combo_enabled !== undefined) setComboActive(res.configs.combo_enabled);
+      })
       .catch(() => {});
     api.get<Partner[]>('/partners/for-orders')
       .then(res => { if (Array.isArray(res)) setPartners(res); })
@@ -410,27 +409,47 @@ export default function NewSaleScreen() {
 
   // ── Items ────────────────────────────────────────────────────────────────
 
-  function addItem(removed: string[]) {
-    setItems(prev => [...prev, { id: Math.random().toString(36).slice(2), removedIngredients: removed }]);
-    showSuccess('Item adicionado!');
+  function addItem(removed: string[], isPromo = false) {
+    if (editingItemId) {
+      setItems(prev => prev.map(i => i.id === editingItemId ? { ...i, removedIngredients: removed } : i));
+      setEditingItemId(null);
+      showSuccess('Item atualizado!');
+    } else {
+      setItems(prev => [...prev, { id: Math.random().toString(36).slice(2), removedIngredients: removed, isPromo }]);
+      showSuccess(isPromo ? 'Brinde adicionado!' : 'Item adicionado!');
+    }
   }
 
-  function removeOneFromGroup(key: string) {
-    setItems(prev => {
-      const idx = [...prev].reverse().findIndex(i => {
-        const k = [...i.removedIngredients].sort().join('|') || 'completo';
-        return k === key;
-      });
-      if (idx === -1) return prev;
-      const realIdx = prev.length - 1 - idx;
-      return prev.filter((_, i) => i !== realIdx);
-    });
+  function handleEditItem(id: string) {
+    const item = items.find(i => i.id === id);
+    if (item) {
+      setEditingItemId(id);
+      setIngredientModalVisible(true);
+    }
+  }
+
+  function addCombo() {
+    const newItems: PdvItem[] = [];
+    for (let i = 0; i < 5; i++) {
+      newItems.push({ id: Math.random().toString(36).slice(2), removedIngredients: [] });
+    }
+    newItems.push({ id: Math.random().toString(36).slice(2), removedIngredients: [], isPromo: true });
+    setItems(prev => [...prev, ...newItems]);
+    showSuccess('Combo adicionado (5+1 Brinde)!');
   }
 
   // ── Submit order ─────────────────────────────────────────────────────────
 
   async function submitOrder(method: PaymentMethod) {
     if (items.length === 0) { showError('Adicione pelo menos 1 dogão.'); return; }
+    
+    const paidCount = items.filter(i => !i.isPromo).length;
+    const promoCount = items.filter(i => i.isPromo).length;
+    if (promoCount > 0 && paidCount < (promoCount * 5)) {
+      showError(`Para ${promoCount} brinde(s), você precisa de pelo menos ${promoCount * 5} dogões pagos.`);
+      return;
+    }
+
     setPaymentMethod(method);
 
     // Se está trocando de método (tinha PIX pendente e escolheu outro), limpa o pixData
@@ -524,6 +543,14 @@ export default function NewSaleScreen() {
   }
 
   function buildDto(method: PaymentMethod, sellerId?: string) {
+    const promoCount = items.filter(i => i.isPromo).length;
+    let obs = (delivery === 'DONATE') ? (donationTarget === 'IVC_INTERNAL' ? 'IVC_INTERNAL' : `PARTNER:${donationTarget}`) : '';
+    
+    if (promoCount > 0) {
+      const sodaMsg = `PROMOÇÃO: ${promoCount} COCA-COLA 2L INCLUSA${promoCount > 1 ? 'S' : ''}`;
+      obs = obs ? `${obs} | ${sodaMsg}` : sodaMsg;
+    }
+
     return {
       customerName: name.trim(),
       customerPhone: phone.replace(/\D/g, ''),
@@ -532,12 +559,16 @@ export default function NewSaleScreen() {
       deliveryOption: delivery,
       totalValue: total,
       sellerId: sellerId ?? undefined,
-      contributorId: user?.id,  // quem está vendendo (para Minhas Vendas)
-      items: items.map(i => ({ productId: 'dogao', removedIngredients: i.removedIngredients })),
+      contributorId: user?.id,
+      items: items.map(i => ({ 
+        productId: 'dogao', 
+        removedIngredients: i.removedIngredients,
+        isPromo: !!i.isPromo 
+      })),
       ...(delivery === 'DELIVERY' && selectedAddressId ? { addressId: selectedAddressId } : {}),
       ...(delivery === 'DELIVERY' && !selectedAddressId && newAddress ? { address: newAddress } : {}),
       ...(delivery === 'DELIVERY' && scheduledTime ? { scheduledTime } : {}),
-      ...(delivery === 'DONATE' ? { observations: donationTarget === 'IVC_INTERNAL' ? 'IVC_INTERNAL' : `PARTNER:${donationTarget}` } : {}),
+      observations: obs || undefined,
     };
   }
 
@@ -596,7 +627,11 @@ export default function NewSaleScreen() {
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Toast message={toast.message} type={toast.type} visible={toast.visible} onHide={() => setToast(t => ({ ...t, visible: false }))} />
 
-      <IngredientModal visible={ingredientModalVisible} onClose={() => setIngredientModalVisible(false)} onSave={addItem} />
+      <IngredientModal 
+        visible={ingredientModalVisible} 
+        onClose={() => { setIngredientModalVisible(false); setEditingItemId(null); }} 
+        onSave={addItem} 
+      />
       <PartnerModal visible={partnerModalVisible} partners={partners} selectedId={donationTarget === 'IVC_INTERNAL' ? null : donationTarget} onSelect={setDonationTarget} onClose={() => setPartnerModalVisible(false)} />
       <PixModal visible={pixModalVisible} pixData={pixData} onConfirm={handlePixConfirm} onClose={handlePixClose} onSendCode={handleSendPixCode} polling={pixPolling} generating={loading} />
       <CashModal visible={cashModalVisible} total={total} onFinalize={handleCashFinalize} onClose={() => setCashModalVisible(false)} />
@@ -736,30 +771,61 @@ export default function NewSaleScreen() {
               <Text style={s.itemsTotal}>{formatCurrency(total)}</Text>
             </View>
 
-            {grouped.map(g => (
-              <View key={g.key} style={s.itemRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.itemName}>🌭 Dogão {g.removed.length > 0 ? `(sem: ${g.removed.join(', ')})` : 'Completo'}</Text>
-                  <Text style={s.itemPrice}>{formatCurrency(dogPrice)} cada</Text>
-                </View>
+            {items.map(item => (
+              <View key={item.id} style={[s.itemRow, item.isPromo && s.itemRowPromo]}>
+                <TouchableOpacity style={{ flex: 1 }} onPress={() => handleEditItem(item.id)}>
+                  <Text style={s.itemName}>
+                    {item.isPromo ? '🎁 ' : '🌭 '}
+                    Dogão {item.removedIngredients.length > 0 ? `(sem: ${item.removedIngredients.join(', ')})` : 'Completo'}
+                    {item.isPromo && <Text style={s.promoBadge}> (BRINDE)</Text>}
+                  </Text>
+                  <Text style={s.itemPrice}>
+                    {item.isPromo ? 'Grátis' : formatCurrency(dogPrice)} • <Text style={{ color: '#ea580c', fontWeight: 'bold' }}>Toque para Editar</Text>
+                  </Text>
+                </TouchableOpacity>
+                
                 <View style={s.qtyControls}>
-                  <TouchableOpacity style={s.qtyBtn} onPress={() => removeOneFromGroup(g.key)}>
-                    <Text style={s.qtyBtnText}>−</Text>
-                  </TouchableOpacity>
-                  <Text style={s.qtyNum}>{g.count}</Text>
-                  <TouchableOpacity style={s.qtyBtn} onPress={() => addItem(g.removed)}>
-                    <Text style={s.qtyBtnText}>+</Text>
-                  </TouchableOpacity>
+                  {!item.isPromo && (
+                    <TouchableOpacity style={s.qtyBtn} onPress={() => setItems(prev => prev.filter(i => i.id !== item.id))}>
+                      <Text style={s.qtyBtnText}>×</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             ))}
 
-            <TouchableOpacity style={s.addItemBtn} onPress={() => setIngredientModalVisible(true)}>
-              <Text style={s.addItemBtnText}>+ Adicionar Dogão</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <TouchableOpacity style={[s.addItemBtn, { flex: 1 }]} onPress={() => setIngredientModalVisible(true)}>
+                <Text style={s.addItemBtnText}>+ Adicionar Dogão</Text>
+              </TouchableOpacity>
+              
+              {comboActive && (
+                <TouchableOpacity style={[s.addItemBtn, s.comboBtn, { flex: 1 }]} onPress={addCombo}>
+                  <Text style={[s.addItemBtnText, s.comboBtnText]}>🎁 Adicionar Combo (5+1)</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {!isComboValid && (
+              <View style={s.warningContainer}>
+                <Text style={s.warningText}>
+                  ⚠️ Para cada brinde, você precisa de 5 dogões pagos.
+                  (Faltam { (promoCount * 5) - paidCount } itens pagos)
+                </Text>
+              </View>
+            )}
 
             {items.length > 0 && (
-              <TouchableOpacity style={s.btn} onPress={() => setStep('payment')}>
+              <TouchableOpacity 
+                style={[s.btn, !isComboValid && { backgroundColor: '#9ca3af' }]} 
+                onPress={() => {
+                  if (!isComboValid) {
+                    showError(`Para ${promoCount} brinde(s), você precisa de pelo menos ${promoCount * 5} dogões pagos.`);
+                    return;
+                  }
+                  setStep('payment');
+                }}
+              >
                 <Text style={s.btnText}>Continuar →</Text>
               </TouchableOpacity>
             )}
@@ -955,4 +1021,17 @@ const s = StyleSheet.create({
   changeBox: { backgroundColor: '#f0fdf4', borderRadius: 12, padding: 16, alignItems: 'center' },
   changeSub: { fontSize: 11, fontWeight: '800', color: '#16a34a', textTransform: 'uppercase', letterSpacing: 1 },
   changeValue: { fontSize: 28, fontWeight: 'bold', color: '#16a34a', marginTop: 4 },
+  
+  // Promo & Combo
+  itemRowPromo: { borderColor: '#ea580c', backgroundColor: '#fff7ed', borderStyle: 'dashed' },
+  promoBadge: { color: '#ea580c', fontWeight: '800', fontSize: 10 },
+  promoToggle: { 
+    backgroundColor: '#f3f4f6', paddingHorizontal: 10, paddingVertical: 6, 
+    borderRadius: 8, marginRight: 8 
+  },
+  promoToggleText: { fontSize: 10, fontWeight: '700', color: '#6b7280' },
+  comboBtn: { borderColor: '#16a34a', backgroundColor: '#f0fdf4' },
+  comboBtnText: { color: '#16a34a' },
+  warningContainer: { backgroundColor: '#fee2e2', padding: 12, borderRadius: 12, marginTop: 12, borderLeftWidth: 4, borderLeftColor: '#ef4444' },
+  warningText: { color: '#b91c1c', fontSize: 12, fontWeight: 'bold' },
 });
