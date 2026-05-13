@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Animated, {
@@ -52,6 +52,9 @@ function NavigationGuard({ onAuthReady }: { onAuthReady: () => void }) {
 }
 
 function UpdateMonitor() {
+  // Expo Updates não é suportado no Web ou em modo Dev sem configuração
+  if (Platform.OS === 'web' || typeof Updates.useUpdateEvents !== 'function') return null;
+
   const { event } = Updates.useUpdateEvents();
 
   useEffect(() => {
