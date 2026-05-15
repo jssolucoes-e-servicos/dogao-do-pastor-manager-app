@@ -155,6 +155,83 @@ function PartnerModal({ visible, partners, selectedId, onSelect, onClose }: {
   );
 }
 
+function ComboModal({ visible, onClose, onSave }: {
+  visible: boolean; onClose: () => void; onSave: (items: { removedIngredients: string[], isPromo: boolean }[]) => void;
+}) {
+  const [localItems, setLocalItems] = useState<{ removedIngredients: string[], isPromo: boolean }[]>([]);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setLocalItems([
+        { removedIngredients: [], isPromo: false },
+        { removedIngredients: [], isPromo: false },
+        { removedIngredients: [], isPromo: false },
+        { removedIngredients: [], isPromo: false },
+        { removedIngredients: [], isPromo: false },
+        { removedIngredients: [], isPromo: true },
+      ]);
+      setEditingIdx(null);
+    }
+  }, [visible]);
+
+  function handleSaveItem(removed: string[]) {
+    if (editingIdx !== null) {
+      setLocalItems(prev => prev.map((it, i) => i === editingIdx ? { ...it, removedIngredients: removed } : it));
+      setEditingIdx(null);
+    }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={s.modalOverlay}>
+        <View style={[s.modalBox, { maxHeight: '90%' }]}>
+          <Text style={s.modalTitle}>🎁 Configurar Combo 5+1</Text>
+          <Text style={s.modalSub}>Personalize cada um dos 6 dogões abaixo.</Text>
+          
+          <ScrollView style={{ marginVertical: 12 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+              {localItems.map((item, idx) => (
+                <TouchableOpacity 
+                  key={idx} 
+                  style={[s.comboCard, item.isPromo ? s.comboCardPromo : s.comboCardNormal]} 
+                  onPress={() => setEditingIdx(idx)}
+                >
+                  <View style={s.comboCardHeader}>
+                    <Text style={s.comboCardLabel}>{item.isPromo ? 'BRINDE' : `DOG ${idx + 1}`}</Text>
+                    <Text style={{ fontSize: 16 }}>⚙️</Text>
+                  </View>
+                  <Text style={s.comboCardStatus} numberOfLines={1}>
+                    {item.removedIngredients.length > 0 ? 'Personalizado' : 'Completo'}
+                  </Text>
+                  {item.removedIngredients.length > 0 && (
+                    <Text style={s.comboCardRemoved} numberOfLines={1}>Sem: {item.removedIngredients.join(',')}</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+
+          <View style={s.modalActions}>
+            <TouchableOpacity style={[s.modalBtnSecondary, { flex: 1 }]} onPress={onClose}>
+              <Text style={s.modalBtnSecondaryText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.modalBtnPrimary, { flex: 2 }]} onPress={() => onSave(localItems)}>
+              <Text style={s.modalBtnPrimaryText}>Adicionar Combo ao Pedido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <IngredientModal 
+          visible={editingIdx !== null} 
+          onClose={() => setEditingIdx(null)} 
+          onSave={handleSaveItem} 
+        />
+      </View>
+    </Modal>
+  );
+}
+
 function PixModal({ visible, pixData, onConfirm, onClose, onSendCode, polling, generating }: {
   visible: boolean;
   pixData: { qrCodeBase64: string; pixCopyPaste: string; orderId: string } | null;
@@ -237,8 +314,8 @@ function PixModal({ visible, pixData, onConfirm, onClose, onSendCode, polling, g
   );
 }
 
-function CashModal({ visible, total, onFinalize, onClose }: {
-  visible: boolean; total: number; onFinalize: (received: number) => void; onClose: () => void;
+function CashModal({ visible, total, onFinalize, onClose, loading }: {
+  visible: boolean; total: number; onFinalize: (received: number) => void; onClose: () => void; loading: boolean;
 }) {
   const [received, setReceived] = useState('');
   const receivedNum = parseFloat(received.replace(',', '.')) || 0;
@@ -265,11 +342,11 @@ function CashModal({ visible, total, onFinalize, onClose }: {
             </View>
           )}
           <TouchableOpacity
-            style={[s.modalBtnPrimary, { marginTop: 16 }, !canFinalize && s.btnDisabled]}
-            onPress={() => canFinalize && onFinalize(receivedNum)}
-            disabled={!canFinalize}
+            style={[s.modalBtnPrimary, { marginTop: 16 }, (!canFinalize || loading) && s.btnDisabled]}
+            onPress={() => canFinalize && !loading && onFinalize(receivedNum)}
+            disabled={!canFinalize || loading}
           >
-            <Text style={s.modalBtnPrimaryText}>Finalizar Venda</Text>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.modalBtnPrimaryText}>Finalizar Venda</Text>}
           </TouchableOpacity>
           <TouchableOpacity style={[s.modalBtnSecondary, { marginTop: 8 }]} onPress={onClose}>
             <Text style={s.modalBtnSecondaryText}>Cancelar</Text>
@@ -289,6 +366,7 @@ export default function NewSaleScreen() {
   // Edition
   const [dogPrice, setDogPrice] = useState(24.99);
   const [comboActive, setComboActive] = useState(false);
+  const [productionDate, setProductionDate] = useState<string | null>(null);
 
   // Toast
   const [toast, setToast] = useState({ visible: false, message: '', type: 'error' as 'error' | 'success' });
@@ -309,7 +387,6 @@ export default function NewSaleScreen() {
   const [delivery, setDelivery] = useState<DeliveryOption>('PICKUP');
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showNewAddress, setShowNewAddress] = useState(false);
-  const [newAddress, setNewAddress] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   // Donation
   const [donationTarget, setDonationTarget] = useState<'IVC_INTERNAL' | string>('IVC_INTERNAL');
@@ -333,6 +410,39 @@ export default function NewSaleScreen() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [cashModalVisible, setCashModalVisible] = useState(false);
+  const [comboModalVisible, setComboModalVisible] = useState(false);
+
+  // Address Autocomplete
+  const [addressData, setAddressData] = useState({ street: '', number: '', neighborhood: '', city: 'Porto Alegre', state: 'RS', zipCode: '', complement: '' });
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const GOOGLE_KEY = "AIzaSyAz4hX92Lzg2_-ROVHJl5qFBFuWft0Qctg";
+
+  async function fetchAddressSuggestions(text: string) {
+    if (text.length < 3) { setAddressSuggestions([]); setShowSuggestions(false); return; }
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${GOOGLE_KEY}&components=country:br&language=pt-BR&types=address`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.predictions) {
+        setAddressSuggestions(json.predictions);
+        setShowSuggestions(true);
+      }
+    } catch (e) {
+      console.error('Google Autocomplete Error:', e);
+    }
+  }
+
+  async function handleSelectSuggestion(suggestion: any) {
+    setShowSuggestions(false);
+    setAddressData(prev => ({ ...prev, street: suggestion.structured_formatting.main_text }));
+    // Tenta extrair o bairro da descrição secundária (ex: "Bairro, Cidade - RS")
+    const secondary = suggestion.structured_formatting.secondary_text || '';
+    const parts = secondary.split(',');
+    if (parts.length > 0) {
+      setAddressData(prev => ({ ...prev, neighborhood: parts[0].trim() }));
+    }
+  }
 
   const total = items.reduce((acc, i) => acc + (i.isPromo ? 0 : dogPrice), 0);
   const paidCount = items.filter(i => !i.isPromo).length;
@@ -341,9 +451,10 @@ export default function NewSaleScreen() {
 
   // Load edition price and partners
   useEffect(() => {
-    api.get<{ edition: { dogPrice: number }, configs: { combo_enabled: boolean } }>('/editions/get-active')
+    api.get<{ edition: { dogPrice: number, productionDate?: string }, configs: { combo_enabled: boolean } }>('/editions/get-active')
       .then(res => {
         if (res?.edition?.dogPrice) setDogPrice(res.edition.dogPrice);
+        if (res?.edition?.productionDate) setProductionDate(res.edition.productionDate);
         if (res?.configs?.combo_enabled !== undefined) setComboActive(res.configs.combo_enabled);
       })
       .catch(() => {});
@@ -402,7 +513,20 @@ export default function NewSaleScreen() {
   }
 
   function submitCustomer() {
-    if (phone.replace(/\D/g, '').length < 10) { showError('Telefone inválido.'); return; }
+    const clean = phone.replace(/\D/g, '');
+    if (clean.length < 10) { showError('Telefone incompleto.'); return; }
+    
+    // Regra: 3º dígito 1-6 (fixo) -> 10 dígitos. 7-9 (celular) -> 11 dígitos.
+    const firstDigit = parseInt(clean[2]);
+    if (firstDigit >= 1 && firstDigit <= 6) {
+      if (clean.length !== 10) { showError('Telefone fixo deve ter 10 dígitos.'); return; }
+    } else if (firstDigit >= 7 && firstDigit <= 9) {
+      if (clean.length !== 11) { showError('Telefone celular deve ter 11 dígitos.'); return; }
+    } else {
+      showError('Formato de telefone inválido.');
+      return;
+    }
+
     if (!name.trim()) { showError('Nome é obrigatório.'); return; }
     setStep('delivery');
   }
@@ -428,14 +552,44 @@ export default function NewSaleScreen() {
     }
   }
 
-  function addCombo() {
-    const newItems: PdvItem[] = [];
-    for (let i = 0; i < 5; i++) {
-      newItems.push({ id: Math.random().toString(36).slice(2), removedIngredients: [] });
-    }
-    newItems.push({ id: Math.random().toString(36).slice(2), removedIngredients: [], isPromo: true });
+  function handleSaveCombo(comboData: { removedIngredients: string[], isPromo: boolean }[]) {
+    const newItems: PdvItem[] = comboData.map(it => ({
+      id: Math.random().toString(36).slice(2),
+      removedIngredients: it.removedIngredients,
+      isPromo: it.isPromo
+    }));
     setItems(prev => [...prev, ...newItems]);
-    showSuccess('Combo adicionado (5+1 Brinde)!');
+    setComboModalVisible(false);
+    showSuccess('Combo adicionado com sucesso!');
+  }
+
+  function addCombo() {
+    setComboModalVisible(true);
+  }
+
+  // Agrupamento de itens para exibição
+  const groupedItems = (() => {
+    const groups: Record<string, { item: PdvItem, quantity: number }> = {};
+    items.forEach(it => {
+      const key = `${[...it.removedIngredients].sort().join('|') || 'completo'}-${it.isPromo ? 'promo' : 'paid'}`;
+      if (groups[key]) groups[key].quantity++;
+      else groups[key] = { item: it, quantity: 1 };
+    });
+    return Object.values(groups);
+  })();
+
+  function handleRemoveOne(item: PdvItem) {
+    const key = `${[...item.removedIngredients].sort().join('|') || 'completo'}-${item.isPromo ? 'promo' : 'paid'}`;
+    const idx = items.findLastIndex(it => {
+        const itKey = `${[...it.removedIngredients].sort().join('|') || 'completo'}-${it.isPromo ? 'promo' : 'paid'}`;
+        return itKey === key;
+    });
+    if (idx !== -1) setItems(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  function handleAddOne(item: PdvItem) {
+    const newItem = { ...item, id: Math.random().toString(36).slice(2) };
+    setItems(prev => [...prev, newItem]);
   }
 
   // ── Submit order ─────────────────────────────────────────────────────────
@@ -492,20 +646,9 @@ export default function NewSaleScreen() {
       return;
     }
 
-    // MONEY: cria pedido e abre modal de troco
+    // MONEY: apenas abre o modal de troco, sem criar pedido ainda (para evitar antecipação)
     if (method === 'MONEY') {
-      setLoading(true);
-      try {
-        const sellerId = getEffectiveSellerId();
-        const dto = buildDto(method, sellerId);
-        const result = await api.post<any>('/orders/create-pdv', dto);
-        if (result?.id) setPendingOrderId(result.id);
-        setCashModalVisible(true);
-      } catch (e: any) {
-        showError(e?.message ?? 'Erro ao criar pedido.');
-      } finally {
-        setLoading(false);
-      }
+      setCashModalVisible(true);
       return;
     }
 
@@ -566,7 +709,9 @@ export default function NewSaleScreen() {
         isPromo: !!i.isPromo 
       })),
       ...(delivery === 'DELIVERY' && selectedAddressId ? { addressId: selectedAddressId } : {}),
-      ...(delivery === 'DELIVERY' && !selectedAddressId && newAddress ? { address: newAddress } : {}),
+      ...(delivery === 'DELIVERY' && !selectedAddressId && addressData.street ? { 
+        address: `${addressData.street}, ${addressData.number}${addressData.complement ? ` — ${addressData.complement}` : ''} — ${addressData.neighborhood}` 
+      } : {}),
       ...(delivery === 'DELIVERY' && scheduledTime ? { scheduledTime } : {}),
       observations: obs || undefined,
     };
@@ -612,12 +757,29 @@ export default function NewSaleScreen() {
     }
   }
 
-  function handleCashFinalize() {
-    setCashModalVisible(false);
-    setStep('done');
-    // Só agora o troco foi confirmado — dispara o comprovante em background
-    if (pendingOrderId) {
-      api.post(`/orders/${pendingOrderId}/finalize-cash`, {}).catch(() => {});
+  async function handleCashFinalize(receivedNum: number) {
+    setLoading(true);
+    try {
+      const sellerId = getEffectiveSellerId();
+      const dto = buildDto('MONEY', sellerId);
+      
+      // Cria o pedido apenas agora
+      const result = await api.post<any>('/orders/create-pdv', dto);
+      const orderId = result?.id;
+      
+      if (orderId) {
+        setPendingOrderId(orderId);
+        // Dispara o comprovante e finalização em background
+        api.post(`/orders/${orderId}/finalize-cash`, { receivedAmount: receivedNum }).catch(() => {});
+      }
+
+      setCashModalVisible(false);
+      setStep('done');
+      showSuccess('Venda finalizada com sucesso!');
+    } catch (e: any) {
+      showError(e?.message ?? 'Erro ao finalizar venda.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -634,7 +796,8 @@ export default function NewSaleScreen() {
       />
       <PartnerModal visible={partnerModalVisible} partners={partners} selectedId={donationTarget === 'IVC_INTERNAL' ? null : donationTarget} onSelect={setDonationTarget} onClose={() => setPartnerModalVisible(false)} />
       <PixModal visible={pixModalVisible} pixData={pixData} onConfirm={handlePixConfirm} onClose={handlePixClose} onSendCode={handleSendPixCode} polling={pixPolling} generating={loading} />
-      <CashModal visible={cashModalVisible} total={total} onFinalize={handleCashFinalize} onClose={() => setCashModalVisible(false)} />
+      <CashModal visible={cashModalVisible} total={total} onFinalize={handleCashFinalize} onClose={() => setCashModalVisible(false)} loading={loading} />
+      <ComboModal visible={comboModalVisible} onClose={() => setComboModalVisible(false)} onSave={handleSaveCombo} />
 
       {/* STEP: customer */}
       {step === 'customer' && (
@@ -710,20 +873,60 @@ export default function NewSaleScreen() {
                   </>
                 )}
                 {((foundCustomer?.addresses ?? []).length === 0 || showNewAddress) && (
-                  <>
-                    <Text style={s.label}>Endereço de entrega</Text>
-                    <TextInput style={s.input} placeholder="Rua, número, bairro, cidade"
-                      value={newAddress} onChangeText={setNewAddress} />
-                    <Text style={s.label}>Horário agendado (opcional)</Text>
-                    <TextInput style={s.input} placeholder="Ex: 19:00" value={scheduledTime} onChangeText={setScheduledTime} />
+                  <View style={{ gap: 8 }}>
+                    <Text style={s.label}>Rua / Logradouro *</Text>
+                    <View style={{ zIndex: 10 }}>
+                      <TextInput 
+                        style={s.input} 
+                        placeholder="Buscar rua..." 
+                        value={addressData.street} 
+                        onChangeText={v => {
+                          setAddressData(p => ({ ...p, street: v }));
+                          fetchAddressSuggestions(v);
+                        }} 
+                      />
+                      {showSuggestions && addressSuggestions.length > 0 && (
+                        <View style={s.suggestionsBox}>
+                          {addressSuggestions.map((item, i) => (
+                            <TouchableOpacity key={i} style={s.suggestionItem} onPress={() => handleSelectSuggestion(item)}>
+                              <Text style={s.suggestionText} numberOfLines={1}>{item.description}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.label}>Número *</Text>
+                        <TextInput style={s.input} placeholder="123" value={addressData.number} onChangeText={v => setAddressData(p => ({ ...p, number: v }))} keyboardType="numeric" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.label}>Bairro *</Text>
+                        <TextInput style={s.input} placeholder="Bairro" value={addressData.neighborhood} onChangeText={v => setAddressData(p => ({ ...p, neighborhood: v }))} />
+                      </View>
+                    </View>
+                    
+                    <Text style={s.label}>Complemento (opcional)</Text>
+                    <TextInput style={s.input} placeholder="Apto/Bloco" value={addressData.complement} onChangeText={v => setAddressData(p => ({ ...p, complement: v }))} />
+
                     {(foundCustomer?.addresses ?? []).length > 0 && (
                       <TouchableOpacity style={s.linkBtn} onPress={() => setShowNewAddress(false)}>
                         <Text style={s.linkBtnText}>← Usar endereço salvo</Text>
                       </TouchableOpacity>
                     )}
-                  </>
+                  </View>
                 )}
+
+                <Text style={s.label}>Horário agendado *</Text>
+                <TextInput style={s.input} placeholder="Ex: 19:30" value={scheduledTime} onChangeText={v => {
+                  const clean = v.replace(/\D/g, '').slice(0, 4);
+                  if (clean.length <= 2) setScheduledTime(clean);
+                  else setScheduledTime(`${clean.slice(0,2)}:${clean.slice(2)}`);
+                }} keyboardType="numeric" />
+                <Text style={s.hint}>Disponível das 10:00 às 21:45</Text>
               </View>
+
             )}
 
             {/* Donation: IVC ou Parceiro */}
@@ -754,7 +957,37 @@ export default function NewSaleScreen() {
               </View>
             )}
 
-            <TouchableOpacity style={s.btn} onPress={() => setStep('items')}>
+            <TouchableOpacity style={s.btn} onPress={() => {
+              if (delivery === 'DELIVERY') {
+                if (!selectedAddressId && (!addressData.street || !addressData.number || !addressData.neighborhood)) { 
+                  showError('Preencha os campos obrigatórios do endereço.'); 
+                  return; 
+                }
+                if (!scheduledTime || scheduledTime.length < 5) { showError('Informe o horário agendado.'); return; }
+                
+                const [hh, mm] = scheduledTime.split(':').map(Number);
+                const timeInMinutes = hh * 60 + mm;
+                
+                if (timeInMinutes < 10 * 60 || timeInMinutes > 21 * 60 + 45) {
+                  showError('O horário deve ser entre 10:00 e 21:45.');
+                  return;
+                }
+
+                // Se for o dia da produção, validar 30 min a mais que agora
+                if (productionDate) {
+                  const today = new Date().toISOString().split('T')[0];
+                  if (productionDate === today) {
+                    const now = new Date();
+                    const nowInMinutes = now.getHours() * 60 + now.getMinutes();
+                    if (timeInMinutes < nowInMinutes + 30) {
+                      showError('O horário mínimo para hoje é daqui a 30 minutos.');
+                      return;
+                    }
+                  }
+                }
+              }
+              setStep('items');
+            }}>
               <Text style={s.btnText}>Continuar →</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -771,28 +1004,33 @@ export default function NewSaleScreen() {
               <Text style={s.itemsTotal}>{formatCurrency(total)}</Text>
             </View>
 
-            {items.map(item => (
-              <View key={item.id} style={[s.itemRow, item.isPromo && s.itemRowPromo]}>
-                <TouchableOpacity style={{ flex: 1 }} onPress={() => handleEditItem(item.id)}>
-                  <Text style={s.itemName}>
-                    {item.isPromo ? '🎁 ' : '🌭 '}
-                    Dogão {item.removedIngredients.length > 0 ? `(sem: ${item.removedIngredients.join(', ')})` : 'Completo'}
-                    {item.isPromo && <Text style={s.promoBadge}> (BRINDE)</Text>}
-                  </Text>
-                  <Text style={s.itemPrice}>
-                    {item.isPromo ? 'Grátis' : formatCurrency(dogPrice)} • <Text style={{ color: '#ea580c', fontWeight: 'bold' }}>Toque para Editar</Text>
-                  </Text>
-                </TouchableOpacity>
-                
-                <View style={s.qtyControls}>
-                  {!item.isPromo && (
-                    <TouchableOpacity style={s.qtyBtn} onPress={() => setItems(prev => prev.filter(i => i.id !== item.id))}>
-                      <Text style={s.qtyBtnText}>×</Text>
+            {groupedItems.map((group, idx) => {
+              const { item, quantity } = group;
+              return (
+                <View key={idx} style={[s.itemRow, item.isPromo && s.itemRowPromo]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.itemName}>
+                      {item.isPromo ? '🎁 ' : '🌭 '}
+                      Dogão {item.removedIngredients.length > 0 ? `(sem: ${item.removedIngredients.join(', ')})` : 'Completo'}
+                      {item.isPromo && <Text style={s.promoBadge}> (BRINDE)</Text>}
+                    </Text>
+                    <Text style={s.itemPrice}>
+                      {item.isPromo ? 'Grátis' : formatCurrency(dogPrice)}
+                    </Text>
+                  </View>
+                  
+                  <View style={s.qtyControls}>
+                    <TouchableOpacity style={s.qtyBtn} onPress={() => handleRemoveOne(item)}>
+                      <Text style={s.qtyBtnText}>-</Text>
                     </TouchableOpacity>
-                  )}
+                    <Text style={s.qtyValue}>{quantity}</Text>
+                    <TouchableOpacity style={s.qtyBtn} onPress={() => handleAddOne(item)}>
+                      <Text style={[s.qtyBtnText, { color: '#16a34a' }]}>+</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
 
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
               <TouchableOpacity style={[s.addItemBtn, { flex: 1 }]} onPress={() => setIngredientModalVisible(true)}>
@@ -962,10 +1200,8 @@ const s = StyleSheet.create({
   },
   itemName: { fontSize: 14, fontWeight: '600', color: '#1f2937' },
   itemPrice: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  qtyBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#ea580c', justifyContent: 'center', alignItems: 'center' },
-  qtyBtnText: { fontSize: 20, color: '#fff', lineHeight: 24 },
-  qtyNum: { fontSize: 18, fontWeight: 'bold', color: '#1f2937', minWidth: 24, textAlign: 'center' },
+  qtyBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center' },
+  qtyBtnText: { fontSize: 20, color: '#4b5563', lineHeight: 24 },
   addItemBtn: {
     borderWidth: 2, borderColor: '#ea580c', borderStyle: 'dashed',
     borderRadius: 14, paddingVertical: 16, alignItems: 'center',
@@ -1034,4 +1270,24 @@ const s = StyleSheet.create({
   comboBtnText: { color: '#16a34a' },
   warningContainer: { backgroundColor: '#fee2e2', padding: 12, borderRadius: 12, marginTop: 12, borderLeftWidth: 4, borderLeftColor: '#ef4444' },
   warningText: { color: '#b91c1c', fontSize: 12, fontWeight: 'bold' },
+
+  suggestionsBox: {
+    position: 'absolute', top: 52, left: 0, right: 0,
+    backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5,
+    zIndex: 1000, maxHeight: 200,
+  },
+  suggestionItem: { padding: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f3f4f6' },
+  suggestionText: { fontSize: 13, color: '#4b5563' },
+
+  qtyValue: { fontSize: 16, fontWeight: 'bold', minWidth: 24, textAlign: 'center' },
+  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#f3f4f6', borderRadius: 10, paddingHorizontal: 4 },
+
+  comboCard: { width: '47%', padding: 12, borderRadius: 16, borderWidth: 2, marginBottom: 4 },
+  comboCardNormal: { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' },
+  comboCardPromo: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  comboCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  comboCardLabel: { fontSize: 10, fontWeight: '900', color: '#6b7280' },
+  comboCardStatus: { fontSize: 13, fontWeight: '700', color: '#1f2937' },
+  comboCardRemoved: { fontSize: 9, color: '#ef4444', fontWeight: '700', marginTop: 2 },
 });
